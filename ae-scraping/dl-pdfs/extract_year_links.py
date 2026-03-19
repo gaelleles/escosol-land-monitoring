@@ -1,13 +1,17 @@
 # Access pages and extract links to avis projet x année
+import logging
+import re
 from argparse import ArgumentParser
 from pathlib import Path
-import re
 from urllib.parse import urljoin
 
 import httpx
 import pandas as pd
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 def get_mrae_links(base_url=None, region=None):

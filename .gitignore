@@ -215,6 +215,7 @@ __marimo__/
 
 #experiences results
 llm_results/*
+datasets/*
 
 # VS code
 .vscode/launch.json
