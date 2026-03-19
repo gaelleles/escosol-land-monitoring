@@ -33,6 +33,22 @@ SIDE_ARCHIVE_URL = "https://side.developpement-durable.gouv.fr/search.aspx?SC=DE
 
 
 def get_side_archive_items_links(driver: WebDriver) -> list[str]:
+    """Extract AE item URLs from the current page of SIDE archive search results.
+
+    Scrapes all notice elements from the current page and extracts their data-url
+    attributes which link to individual document pages.
+
+    Parameters
+    ----------
+    driver : WebDriver
+        Selenium WebDriver instance with the SIDE archive search results page loaded.
+
+    Returns
+    -------
+    list[str]
+        List of URLs pointing to individual document detail pages.
+    """
+
     items = driver.find_elements(
         By.XPATH,
         "//div[contains(@class,'notice notice_courte row')]",
@@ -48,6 +64,24 @@ def get_side_archive_items_links(driver: WebDriver) -> list[str]:
 async def get_side_archive_pdf_url_and_name(
     parent_document_id: str,
 ) -> tuple[str, str] | None:
+    """Retrieve AE PDF download URL and filename from SIDE document library.
+
+    Queries the SIDE Digital Collection Service API to find downloadable AE documents
+    associated with a given parent document ID, then constructs the direct download
+    URL for the first available document.
+
+    Parameters
+    ----------
+    parent_document_id : str
+        The parent document identifier used to query the document library service.
+
+    Returns
+    -------
+    tuple[str, str] | None
+        A tuple containing (pdf_url, pdf_filename) if a document is found,
+        otherwise None.
+    """
+
     document_library_url = f"https://side.developpement-durable.gouv.fr/DigitalCollectionService.svc/ListDigitalDocuments?parentDocumentId={parent_document_id}&start=0&limit=10&includeMetaDatas=false"
 
     async with httpx.AsyncClient(
@@ -74,6 +108,18 @@ async def get_side_archive_pdf_url_and_name(
 
 
 async def get_side_archive_pdf_urls_and_metadata() -> pd.DataFrame:
+    """Scrape SIDE archive to extract AE metadata and PDF download URLs.
+
+    Performs a complete scrape of the SIDE archive website for relevant AE. Navigates through all pagination pages,
+    extracts metadata from each document page, and retrieves associated PDF download links.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing columns: title, url, author, publisher, publish_date,
+        pdf_filename, pdf_url for each scraped document.
+    """
+
     options = webdriver.FirefoxOptions()
     options.add_argument("-headless")
     driver: WebDriver = webdriver.Firefox(options=options)

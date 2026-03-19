@@ -58,7 +58,7 @@ if __name__ == "__main__":
         logger.info("Reading archive metadata CSV files...")
         df = pd.read_csv(args.metadata_filepath)
     else:
-        # df_side = asyncio.run(get_side_archive_pdf_urls_and_metadata())
+        df_side = asyncio.run(get_side_archive_pdf_urls_and_metadata())
         df_bretagne = asyncio.run(get_bretagne_archive_pdf_and_metadata())
 
         df = pd.concat([df_side, df_bretagne])

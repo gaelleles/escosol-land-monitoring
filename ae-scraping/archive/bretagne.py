@@ -16,24 +16,44 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 
-from .config import HEADERS, RETRY_TRANSPORT, TIMEOUT_CONFIG
+from .config import HEADERS, RETRY_TRANSPORT, TIMEOUT_CONFIG, ARCHIVE_URLS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-ARCHIVE_URLS = {
-    "Bretagne": "https://www.bretagne.developpement-durable.gouv.fr/avis-de-l-ae-sur-projets-jusqu-en-2017-r743.html",
-    "Grand Est": "https://www.grand-est.developpement-durable.gouv.fr/avis-et-decisions-de-l-ae-r6433.html",
-    "Guadeloupe": "https://www.guadeloupe.developpement-durable.gouv.fr/annees-2010-a-2022-r1437.html",
-    "Guyane": "https://www.guyane.developpement-durable.gouv.fr/avis-de-l-autorite-environnementale-r852.html",
-    "Aisne": "https://www.aisne.gouv.fr/Actions-de-l-Etat/Environnement/Avis-de-l-autorite-environnementale/Avis-de-l-AE/Les-avis-de-l-autorite-environnementale",
-    "Somme": "https://www.somme.gouv.fr/Actions-de-l-Etat/Environnement/Autorite-environnementale-Avis-sur-les-evaluations-environnementales",
-    "Nord-Pas-de-Calais": "https://www.hauts-de-france.developpement-durable.gouv.fr/spip.php?page=rubrique&id_rubrique=1468#pagination_articles",
-}
-
-
 async def get_bretagne_archive_pdf_and_metadata() -> pd.DataFrame:
+    """Extract AE PDF links and metadata from Bretagne archive website.
+
+    Scrapes the Bretagne AE archive to find relevant AEs,
+    extracting project names, commune information, departement details, and
+    associated PDF document URLs.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing extracted avis with columns:
+        - project_name : str
+            Name of the photovoltaic/solar project
+        - commune_name : str
+            Name of the commune where the project is located
+        - departement_name : str
+            Name of the departement
+        - document_name : str
+            Filename of the PDF document
+        - year : str or None
+            Year when the avis was published (if available)
+        - document_url : str
+            Full URL to the PDF document
+
+    Examples
+    --------
+    >>> import asyncio
+    >>> df = asyncio.run(get_bretagne_archive_pdf_and_metadata())
+    >>> print(df.columns.tolist())
+    ['project_name', 'commune_name', 'departement_name', 'document_name', 'year', 'document_url']
+    """
+
     avis = []
 
     bretagne_archive_url = ARCHIVE_URLS["Bretagne"]
