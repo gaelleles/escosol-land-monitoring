@@ -9,7 +9,6 @@ import logging
 import re
 import time
 from datetime import datetime
-from pathlib import Path
 
 import httpx
 import pandas as pd
@@ -24,7 +23,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .config import HEADERS, RETRY_TRANSPORT, TIMEOUT_CONFIG
-from .utils import download_pdf
+from .utils import extract_departement
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -188,6 +187,9 @@ async def get_side_archive_pdf_urls_and_metadata() -> pd.DataFrame:
                 )
                 if "Avis" not in title:
                     continue
+
+                departement_code = extract_departement(title)
+
                 try:
                     author = (
                         soup.find("p", class_="item-author")
@@ -234,6 +236,7 @@ async def get_side_archive_pdf_urls_and_metadata() -> pd.DataFrame:
                     "author": author,
                     "publisher": publisher,
                     "publish_date": publish_date,
+                    "departement_code": departement_code,
                     "pdf_filename": pdf_filename,
                     "pdf_url": pdf_url,
                 }

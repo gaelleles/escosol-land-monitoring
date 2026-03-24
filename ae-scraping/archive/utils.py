@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import re
 
 import httpx
 import pandas as pd
@@ -85,3 +86,34 @@ async def download_pdfs(pdf_metadata_df: pd.DataFrame, output_path: Path):
     """
     for _, row in pdf_metadata_df.iterrows():
         _ = await download_pdf(row["pdf_url"], output_path / row["pdf_filename"])
+
+
+def clean_departement_code(raw_departement_code: str) -> str | None:
+    """Try to clean raw_departement_code to get consistent 2 to 3 digits departement format (3 digits for Overseas)"""
+    if len(raw_departement_code) == 2:
+        return raw_departement_code
+
+    if len(raw_departement_code) == 5:
+        if ("A" in raw_departement_code) or ("B" in raw_departement_code):
+            return raw_departement_code[:2]
+
+        try:
+            raw_departement_code_int = int(raw_departement_code)
+        except Exception:
+            return None
+
+        if raw_departement_code_int > 97000:
+            # Overseas case
+            return raw_departement_code[:3]
+
+        return raw_departement_code[:2]
+
+
+def extract_departement(string: str) -> str | None:
+    """Extract departement code from a string like the title of an AE"""
+    departement_code = None
+
+    departement_match = re.search(r"\(([0-9AB]{2,5})\)", string)
+    if departement_match is not None:
+        departement_code = departement_match.group(1)
+        return clean_departement_code(departement_code)
