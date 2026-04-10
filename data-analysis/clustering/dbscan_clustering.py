@@ -1,29 +1,28 @@
-import os
+import argparse
+from pathlib import Path
 
-import marimo as mo
 import duckdb
+import numpy as np
 import polars as pl
-
-from sklearn.cluster import DBSCAN
-from geopy.distance import distance
 import shapely
+from geopy.distance import distance
+from sklearn.cluster import DBSCAN
 
 
-def get_centroid_coords(p) -> tuple[float, float]:
+def get_centroid_coords(p: bytes) -> tuple[float, float]:
     p_centroid = shapely.from_wkb(p).centroid
 
     return (p_centroid.y, p_centroid.x)
 
 
-def distance_func(row_1, row_2) -> float:
+def distance_func(row_1: np.array, row_2: np.array) -> float:
     d = distance((row_1[1], row_1[2]), (row_2[1], row_2[2])).km
 
     return d
 
 
-def main():
-    DATABASE_URL = os.environ["DATABASE_PATH"]
-    engine = duckdb.connect(DATABASE_URL, read_only=False)
+def main(db_path: Path):
+    engine = duckdb.connect(db_path, read_only=False)
 
     df_photo = engine.sql(
         """
@@ -37,7 +36,12 @@ def main():
         .alias("centroid")
     )
 
-    estimator = DBSCAN(eps=1, metric=distance_func, min_samples=2, n_jobs=-1)
+    estimator = DBSCAN(
+        eps=1,  # 1km of distance max between the centroids of the geometries
+        metric=distance_func,
+        min_samples=2,
+        n_jobs=-1,
+    )
 
     X = df_photo_with_centroid.select(
         "id",
@@ -56,4 +60,16 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    argument_parser = argparse.ArgumentParser(
+        description="Takes a duckdb table containing 'IGN photovoltaïque' dataset and performs a clustering on it."
+    )
+
+    argument_parser.add_argument(
+        "duckdb_path",
+        help="Path to the duckdb db file containing the ign_photo table",
+        type=Path,
+    )
+
+    args = argument_parser.parse_args()
+
+    main(args.duckdb_path)
