@@ -48,4 +48,7 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["ae_labeling"]
+members = [
+    "ae_labeling",
+    "data-analysis/clustering",
+]
