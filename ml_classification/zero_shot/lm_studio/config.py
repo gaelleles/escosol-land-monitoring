@@ -49,6 +49,11 @@ MODELS_CONFIG = {
             "contextLength": 32768,
         },
     },
+    "qwen/qwen3.5-9b": {
+        "model_config": {
+            "contextLength": 32768,
+        },
+    },
 }
 
 LLM_OUTPUT_JSON_SCHEMA = {

@@ -68,7 +68,7 @@ async def get_pdf_metadata_sema(
 ) -> list[dict] | None:
     """Wrapper that applies semaphore for rate limiting."""
     async with SEMAPHORE:
-        await asyncio.sleep(random.uniform(0.5, 1))
+        await asyncio.sleep(random.uniform(0.3, 2))
 
         return await get_pdf_metadata(client, base_url)
 

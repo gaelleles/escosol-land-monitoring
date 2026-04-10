@@ -1,0 +1,14 @@
+[project]
+name = "clustering"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "duckdb>=1.5.1",
+    "geopy>=2.4.1",
+    "marimo>=0.23.0",
+    "scikit-learn>=1.8.0",
+    "shapely>=2.1.2",
+    "sqlglot>=30.4.2",
+]

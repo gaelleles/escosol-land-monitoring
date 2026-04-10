@@ -1,8 +1,11 @@
 import httpx
 from httpx_retries import Retry, RetryTransport
 
-TIMEOUT_CONFIG = httpx.Timeout(90.0, connect=30.0, read=90)
-HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+TIMEOUT_CONFIG = httpx.Timeout(90.0, connect=30.0, read=490)
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Connection": "close",
+}
 RETRY_TRANSPORT = RetryTransport(
     retry=Retry(
         total=5,

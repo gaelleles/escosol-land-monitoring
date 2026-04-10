@@ -55,6 +55,8 @@ def run_pdfs_inference(
             raise e
 
         res_dict["pdf_name"] = row["pdf_name"]
+        res_dict["pdf_text"] = row["pdf_text"]
+
         result.append(res_dict)
 
     result_df = pl.DataFrame(result)
@@ -72,7 +74,7 @@ if __name__ == "__main__":
 
     arg_parser.add_argument(
         "pdf_parquet_filepath",
-        help="Path of the parquet file containing PDF data to run inference on. Use module datset_creation to generate it",
+        help="Path of the parquet file containing PDF data to run inference on. Use module dataset_creation to generate it",
     )
 
     arg_parser.add_argument(

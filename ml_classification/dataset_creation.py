@@ -1,11 +1,15 @@
 import argparse
 import re
 from pathlib import Path
+import logging
 
 import polars as pl
 import pymupdf.layout  # noqa: F401
 import pymupdf4llm
 from tqdm import tqdm
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 
 def clean_text(raw_text: str | None) -> str | None:
@@ -51,14 +55,18 @@ def create_dataset(
         if (pdfs_to_select is not None) and (pdf_name not in pdfs_to_select):
             continue
 
-        md_text: str = pymupdf4llm.to_markdown(
-            pdf_path,
-            header=False,
-            footer=False,
-            ignore_code=True,
-            ignore_graphics=True,
-            ignore_images=True,
-        )  # type: ignore
+        try:
+            md_text: str = pymupdf4llm.to_markdown(
+                pdf_path,
+                header=False,
+                footer=False,
+                ignore_code=True,
+                ignore_graphics=True,
+                ignore_images=True,
+            )  # type: ignore
+        except Exception as e:
+            logger.warning("Exception when reading file : %s, got %s", pdf_name, e)
+            continue
 
         pdf_text_clean = clean_text(md_text)
 
