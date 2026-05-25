@@ -10,9 +10,7 @@ import re
 import time
 from datetime import datetime
 
-import httpx
 import pandas as pd
-from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
@@ -20,9 +18,10 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 
-from ..config import HEADERS, RETRY_TRANSPORT, TIMEOUT_CONFIG
+from ..config import get_http_client
+from ..utils.data import get_scraped_avis_dict
+from ..utils.scraping import get_soup_from_url
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -82,9 +81,7 @@ async def get_side_archive_pdf_url_and_name(
 
     document_library_url = f"https://side.developpement-durable.gouv.fr/DigitalCollectionService.svc/ListDigitalDocuments?parentDocumentId={parent_document_id}&start=0&limit=10&includeMetaDatas=false"
 
-    async with httpx.AsyncClient(
-        headers=HEADERS, timeout=TIMEOUT_CONFIG, follow_redirects=True
-    ) as client:
+    async with get_http_client() as client:
         res = await client.get(url=document_library_url)
         res.raise_for_status()
         json_res = res.json()
@@ -167,73 +164,47 @@ async def get_side_archive_pdf_urls_and_metadata() -> pd.DataFrame:
         page += 1
 
     results_list = []
-    with logging_redirect_tqdm():
-        for url in tqdm(urls, desc="Extracting PDF links and metadata."):
-            async with httpx.AsyncClient(
-                headers=HEADERS,
-                timeout=TIMEOUT_CONFIG,
-                follow_redirects=True,
-                transport=RETRY_TRANSPORT,
-            ) as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, "html.parser")
+    for url in tqdm(urls, desc="Extracting PDF links and metadata."):
+        async with get_http_client() as client:
+            soup = await get_soup_from_url(client, url)
 
-                title = (
-                    soup.find("div", id="notice_longue_description")
-                    .find("h2")
-                    .text.replace("\\", "")
+            title = (
+                soup.find("div", id="notice_longue_description")
+                .find("h2")
+                .text.replace("\\", "")
+            )
+            if "Avis" not in title:
+                continue
+
+            try:
+                publish_date = datetime.strptime(
+                    soup.find("p", class_="item-datepublication")
+                    .text.split("Date de publication : ")[1]
+                    .strip(),
+                    "%d/%m/%Y",
                 )
-                if "Avis" not in title:
-                    continue
+            except AttributeError:
+                logger.debug("Publish date not found for url %s", url)
+                publish_date = None
 
-                try:
-                    author = (
-                        soup.find("p", class_="item-author")
-                        .find("a")
-                        .text.replace("\\", "")
-                    )
-                except AttributeError:
-                    logger.debug("Author not found for url %s", url)
-                    author = None
+            parent_document_id = re.search(
+                r"collectionId:'([0-9]+)'",
+                soup.find("div", id="dr-viewer").find("script").text,
+            ).group(1)
 
-                try:
-                    publisher = (
-                        soup.find("p", class_="item-publisher")
-                        .find("a")
-                        .text.replace("\\", "")
-                    )
-                except AttributeError:
-                    logger.debug("Publisher not found for url %s", url)
-                    publisher = None
+            pdf_url, pdf_filename = await get_side_archive_pdf_url_and_name(
+                parent_document_id
+            )
 
-                try:
-                    publish_date = datetime.strptime(
-                        soup.find("p", class_="item-datepublication")
-                        .text.split("Date de publication : ")[1]
-                        .strip(),
-                        "%d/%m/%Y",
-                    )
-                except AttributeError:
-                    logger.debug("Publish date not found for url %s", url)
-                    publish_date = None
-
-                parent_document_id = re.search(
-                    r"collectionId:'([0-9]+)'",
-                    soup.find("div", id="dr-viewer").find("script").text,
-                ).group(1)
-
-                pdf_url, pdf_filename = await get_side_archive_pdf_url_and_name(
-                    parent_document_id
-                )
-
-                result_object = {
-                    "project_name": title,
-                    "publish_date_scraped": publish_date,
-                    "pdf_filename": pdf_filename,
-                    "pdf_url": pdf_url,
-                }
-                results_list.append(result_object)
-                await asyncio.sleep(0.5)
+            result_object = get_scraped_avis_dict(
+                project_name=title,
+                communes_names=None,
+                departement_name=None,
+                project_date=publish_date,
+                pdf_filename=pdf_filename,
+                pdf_url=pdf_url,
+            )
+            results_list.append(result_object)
+            await asyncio.sleep(0.5)
 
     return pd.DataFrame(results_list)

@@ -13,12 +13,13 @@ from argparse import ArgumentParser
 from pathlib import Path
 from urllib.parse import urljoin
 
-import httpx
 import pandas as pd
 from bs4 import BeautifulSoup
 
-from ..config import HEADERS, RETRY_TRANSPORT, TIMEOUT_CONFIG
-from ..utils import (
+from ..config import get_http_client, project_filter
+from ..utils.data import get_scraped_avis_dict
+from ..utils.scraping import get_soup_from_url
+from ..utils.download import (
     download_pdfs,
 )
 
@@ -29,9 +30,9 @@ ARCHIVE_URL = "https://www.hauts-de-france.developpement-durable.gouv.fr/-Consul
 
 
 async def get_npdc_archive_pdf_urls_and_metadata() -> pd.DataFrame:
-    """Extract AE PDF links and metadata from Guyane archive website.
+    """Extract AE PDF links and metadata from Nord-Pas-de-Calais archive website.
 
-    Scrapes the Bretagne AE archive to find relevant AEs,
+    Scrapes the Nord-Pas-de-Calais AE archive to find relevant AEs,
     extracting project names, commune information, departement details, and
     associated PDF document URLs.
 
@@ -42,20 +43,14 @@ async def get_npdc_archive_pdf_urls_and_metadata() -> pd.DataFrame:
     Examples
     --------
     >>> import asyncio
-    >>> df = asyncio.run(get_bretagne_archive_pdf_and_metadata())
+    >>> df = asyncio.run(get_npdc_archive_pdf_urls_and_metadata())
     """
     locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")
 
     docs = []
 
-    async with httpx.AsyncClient(
-        headers=HEADERS,
-        timeout=TIMEOUT_CONFIG,
-        follow_redirects=True,
-        transport=RETRY_TRANSPORT,
-    ) as client:
-        res = await client.get(ARCHIVE_URL)
-        soup = BeautifulSoup(res.text, "html.parser")
+    async with get_http_client() as client:
+        soup = await get_soup_from_url(client, ARCHIVE_URL)
 
         num_docs = int(
             soup.find("div", class_="nb_resultat fr-col-md-6")
@@ -73,9 +68,7 @@ async def get_npdc_archive_pdf_urls_and_metadata() -> pd.DataFrame:
                     continue
 
                 document_title = link_e.get_text(strip=True)
-                if not any(
-                    e in document_title.lower() for e in ["cas par cas", "avis"]
-                ):
+                if not project_filter(document_title.lower()):
                     continue
 
                 a_href = link_e.get("href")
@@ -102,19 +95,20 @@ async def get_npdc_archive_pdf_urls_and_metadata() -> pd.DataFrame:
                 pdf_url = urljoin(ARCHIVE_URL, a_href)
 
                 docs.append(
-                    {
-                        "project_name": document_title,
-                        "publish_date_scraped": publish_date,
-                        "communes_names_scraped": communes_names,
-                        "pdf_filename": pdf_filename,
-                        "pdf_url": pdf_url,
-                    }
+                    get_scraped_avis_dict(
+                        project_name=document_title,
+                        communes_names=communes_names,
+                        departement_name=None,
+                        project_date=publish_date,
+                        pdf_filename=pdf_filename,
+                        pdf_url=pdf_url,
+                    )
                 )
 
             next_page_url = ARCHIVE_URL + f"&debut_articles={next_page_start}"
             next_page_start += 10
-            res = await client.get(next_page_url)
-            soup = BeautifulSoup(res.text, "html.parser")
+
+            soup = await get_soup_from_url(client, next_page_url)
 
     return pd.DataFrame(docs)
 

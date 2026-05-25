@@ -1,22 +1,27 @@
 import asyncio
+import locale
 import logging
 import random
+import re
 from argparse import ArgumentParser
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urljoin
 
 import httpx
 import pandas as pd
-from bs4 import BeautifulSoup
 from tqdm.asyncio import tqdm_asyncio
-from tqdm.contrib.logging import logging_redirect_tqdm
 
-from ..config import HEADERS, RETRY_TRANSPORT, TIMEOUT_CONFIG
+from ..config import get_http_client, project_filter
+from ..utils.data import get_scraped_avis_dict
+from ..utils.scraping import get_soup_from_url
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
 SEMAPHORE = asyncio.Semaphore(5)  # Max 5 concurrent requests
+
+locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")
 
 
 async def get_pdf_metadata(
@@ -32,31 +37,44 @@ async def get_pdf_metadata(
 
     results = []
 
-    response = await client.get(base_url)
-    soup = BeautifulSoup(response.text, "html.parser")
+    soup = await get_soup_from_url(client, base_url)
 
     encadres = soup.select("div.texteencadre-spip")
     for div in encadres:
-        texte_complet = (
-            div.get_text(" ", strip=True).lower().replace("ï", "i")
-        )  # Normalisation des caractères, + efficace que chercher par accent
+        texte_complet = div.get_text(" ", strip=True).lower()
 
-        if any(e in texte_complet for e in ["voltaique", "solaire"]):
+        if project_filter(texte_complet):
             strong_tag = div.find("strong")
             title = strong_tag.get_text(strip=True) if strong_tag else "Sans titre"
 
             pdf_link = div.select_one("a.fr-download__link")
+
+            avis_date = None
+            avis_date_match = re.search(
+                r"avis sur projet du ([0-9]{1,2} [a-zéû]+ [0-9]{4})",
+                texte_complet,
+                flags=re.IGNORECASE,
+            )
+            if avis_date_match is not None:
+                date_raw = avis_date_match.group(1)
+                try:
+                    avis_date = datetime.strptime(date_raw, "%d %B %Y")
+                except Exception as exc:
+                    logger.debug(exc)
+
             if pdf_link and pdf_link.get("href"):
                 pdf_url = urljoin(base_url, pdf_link["href"])
-                pdf_name = pdf_url.split("/")[-1]
+                pdf_name = Path(pdf_url).name
 
                 results.append(
-                    {
-                        "project_name": title,
-                        "description": texte_complet,
-                        "pdf_url": pdf_url,
-                        "pdf_filename": pdf_name,
-                    }
+                    get_scraped_avis_dict(
+                        project_name=title,
+                        communes_names=None,
+                        departement_name=None,
+                        project_date=avis_date,
+                        pdf_url=pdf_url,
+                        pdf_filename=pdf_name,
+                    )
                 )
 
     if results:
@@ -78,12 +96,7 @@ async def get_all_pdfs_metadata_df(ae_year_links_df: pd.DataFrame) -> pd.DataFra
     links for each region and each year."""
 
     # Create tasks for all URLs to process concurrently
-    async with httpx.AsyncClient(
-        headers=HEADERS,
-        timeout=TIMEOUT_CONFIG,
-        follow_redirects=True,
-        transport=RETRY_TRANSPORT,
-    ) as client:
+    async with get_http_client() as client:
         tasks = [
             get_pdf_metadata_sema(client, row["year_url"])
             for _, row in ae_year_links_df.iterrows()
@@ -91,13 +104,12 @@ async def get_all_pdfs_metadata_df(ae_year_links_df: pd.DataFrame) -> pd.DataFra
 
         # Execute all tasks concurrently with progress tracking
 
-        with logging_redirect_tqdm():
-            async with SEMAPHORE:
-                results_list = await tqdm_asyncio.gather(
-                    *tasks,
-                    desc="Extracting PDF urls and metadata",
-                    unit=" links scraped",
-                )
+        async with SEMAPHORE:
+            results_list = await tqdm_asyncio.gather(
+                *tasks,
+                desc="Extracting PDF urls and metadata",
+                unit=" links scraped",
+            )
 
     # Flatten and filter results
     results = []
