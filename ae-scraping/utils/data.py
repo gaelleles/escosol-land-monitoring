@@ -1,7 +1,8 @@
 import logging
+import urllib
+from datetime import datetime
 from pathlib import Path
 from typing import Any
-from datetime import datetime
 
 import pandas as pd
 
@@ -28,6 +29,9 @@ def get_scraped_avis_dict(
             ].iloc[0]["DEP"]
         except Exception as exc:
             logger.debug("Departement with name %s not found.", departement_name, exc)
+
+    pdf_prefix = urllib.parse.urlparse(pdf_url).netloc
+    pdf_filename = pdf_prefix + "_" + pdf_filename
 
     return {
         "project_name": project_name.strip(),

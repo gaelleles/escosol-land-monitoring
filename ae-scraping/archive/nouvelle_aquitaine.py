@@ -1348,8 +1348,6 @@ async def get_nouvelle_aquitaine_archive_pdf_urls_and_metadata() -> pd.DataFrame
     --------
     >>> import asyncio
     >>> df = asyncio.run(get_nouvelle_aquitaine_archive_pdf_urls_and_metadata())
-    >>> print(df.columns.tolist())
-    ['project_name', 'commune_name', 'departement_name', 'year', 'pdf_filename', 'pdf_url']
     """
 
     avis_dfs = []

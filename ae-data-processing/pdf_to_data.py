@@ -319,12 +319,9 @@ def process_all_pdfs_files(
         ]
         if len(filename_search_df) == 0:
             logger.debug("Metadata not found for file %s", filename)
+            pdfs_with_errors.append(filename)
             continue
-        metadata = (
-            pdf_metadata_df.loc[pdf_metadata_df["pdf_filename"] == filename]
-            .iloc[0]
-            .to_dict()
-        )
+        metadata = filename_search_df.iloc[0].to_dict()
         try:
             # 1. Extraction texte brut
             raw_text: str = pymupdf4llm.to_markdown(
@@ -378,7 +375,7 @@ if __name__ == "__main__":
     )
     arg_parser.add_argument(
         "pdf_metadata_csv_filepath",
-        help="Path of the CSV file containing pdf metadata..",
+        help="Path of the CSV file containing pdf metadata.",
         type=Path,
     )
 

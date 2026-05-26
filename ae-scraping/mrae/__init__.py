@@ -33,8 +33,6 @@ async def get_mrae_pdf_urls_and_metadata() -> pd.DataFrame:
     --------
     >>> import asyncio
     >>> df = asyncio.run(get_mrae_pdf_urls_and_metadata())
-    >>> print(df.columns.tolist())
-    ['project_name', 'commune_name', 'departement_name', 'year', 'pdf_filename', 'pdf_url']
     """
     results = []
     for region_name, region_url in MRAE_URLS.items():

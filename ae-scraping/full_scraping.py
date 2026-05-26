@@ -14,6 +14,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .archive.bretagne import get_bretagne_archive_pdf_urls_and_metadata
+from .archive.corse import get_corse_archive_pdf_urls_and_metadata
 from .archive.guadeloupe import get_guadeloupe_archive_pdf_urls_and_metadata
 from .archive.guyane import get_guyane_archive_pdf_urls_and_metadata
 from .archive.nord_pas_de_calais import get_npdc_archive_pdf_urls_and_metadata
@@ -40,6 +41,7 @@ sites_scraping_function_map = {
     "SIDE": get_side_archive_pdf_urls_and_metadata,
     "Nouvelle-Aquitaine": get_nouvelle_aquitaine_archive_pdf_urls_and_metadata,
     "Pays de la Loire": get_pdl_archive_pdf_urls_and_metadata,
+    "Corse": get_corse_archive_pdf_urls_and_metadata,
 }
 
 
