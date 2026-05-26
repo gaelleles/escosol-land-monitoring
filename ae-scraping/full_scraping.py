@@ -6,38 +6,53 @@ import asyncio
 import logging
 import os
 from argparse import ArgumentParser
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .archive.bretagne import get_bretagne_archive_pdf_urls_and_metadata
+from .archive.corse import get_corse_archive_pdf_urls_and_metadata
 from .archive.guadeloupe import get_guadeloupe_archive_pdf_urls_and_metadata
 from .archive.guyane import get_guyane_archive_pdf_urls_and_metadata
 from .archive.nord_pas_de_calais import get_npdc_archive_pdf_urls_and_metadata
+from .archive.nouvelle_aquitaine import (
+    get_nouvelle_aquitaine_archive_pdf_urls_and_metadata,
+)
+from .archive.pays_de_la_loire import get_pdl_archive_pdf_urls_and_metadata
 from .archive.side import get_side_archive_pdf_urls_and_metadata
 from .archive.somme import get_somme_archive_pdf_urls_and_metadata
 from .mrae import get_mrae_pdf_urls_and_metadata
-from .utils import download_pdfs
+from .utils.download import download_pdfs
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 sites_scraping_function_map = {
-    "MRAE": get_mrae_pdf_urls_and_metadata,
+    "MRAE": get_mrae_pdf_urls_and_metadata,  # New website
+    # The following are all archive websites :
     "Bretagne": get_bretagne_archive_pdf_urls_and_metadata,
     "Guyane": get_guyane_archive_pdf_urls_and_metadata,
     "Guadeloupe": get_guadeloupe_archive_pdf_urls_and_metadata,
     "Somme": get_somme_archive_pdf_urls_and_metadata,
     "Nord-Pas-de-Calais": get_npdc_archive_pdf_urls_and_metadata,
     "SIDE": get_side_archive_pdf_urls_and_metadata,
+    "Nouvelle-Aquitaine": get_nouvelle_aquitaine_archive_pdf_urls_and_metadata,
+    "Pays de la Loire": get_pdl_archive_pdf_urls_and_metadata,
+    "Corse": get_corse_archive_pdf_urls_and_metadata,
 }
 
 
 async def run_all_scraping_functions() -> list[pd.DataFrame]:
     dfs = []
-    for site, func in sites_scraping_function_map.items():
-        df = await func()
-        dfs.append(df)
+    with logging_redirect_tqdm():
+        with tqdm(sites_scraping_function_map.items(), colour="GREEN") as t:
+            for site, func in t:
+                t.set_description(f"{site}")
+                df = await func()
+                dfs.append(df)
 
     return dfs
 
@@ -93,7 +108,9 @@ if __name__ == "__main__":
         dfs = asyncio.run(run_all_scraping_functions())
 
         df = pd.concat(dfs, ignore_index=True, sort=True)
-        df.to_csv(output_path / "_pdfs_metadata.csv", index=False)
+        df.to_csv(
+            output_path / f"_pdfs_metadata_{datetime.now():%Y_%m_%d}.csv", index=False
+        )
 
     if (args.metadata_only is not None) and not args.metadata_only:
         logger.info("Starting PDFs downloading...")

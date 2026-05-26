@@ -4,19 +4,19 @@ Module containing utilities to scrape Bretagne AE archive website
 and extract relevant AE metadata and PDFs.
 """
 
+from datetime import datetime
 import logging
 import re
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin
 
-import httpx
 import pandas as pd
-from bs4 import BeautifulSoup
 from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 
 
-from ..config import HEADERS, RETRY_TRANSPORT, TIMEOUT_CONFIG
+from ..config import get_http_client
+from ..utils.scraping import get_soup_from_url
+from ..utils.data import get_scraped_avis_dict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,23 +52,14 @@ async def get_bretagne_archive_pdf_urls_and_metadata() -> pd.DataFrame:
     --------
     >>> import asyncio
     >>> df = asyncio.run(get_bretagne_archive_pdf_urls_and_metadata())
-    >>> print(df.columns.tolist())
-    ['project_name', 'commune_name', 'departement_name', 'year', 'pdf_filename', 'pdf_url']
     """
 
     avis = []
 
     bretagne_archive_url = ARCHIVE_URL
-    async with httpx.AsyncClient(
-        headers=HEADERS,
-        timeout=TIMEOUT_CONFIG,
-        follow_redirects=True,
-        transport=RETRY_TRANSPORT,
-    ) as client:
+    async with get_http_client() as client:
         years_links: list[dict] = []
-        res = await client.get(bretagne_archive_url)
-
-        soup = BeautifulSoup(res.text, "html.parser")
+        soup = await get_soup_from_url(client, bretagne_archive_url)
 
         years_divs = soup.find_all(
             "div", class_="item-liste-rubriques-seule fr-enlarge-link fr-mb-4w"
@@ -88,8 +79,9 @@ async def get_bretagne_archive_pdf_urls_and_metadata() -> pd.DataFrame:
         for e in years_links:
             link = e["url"]
             year = e["year"]
-            year_res = await client.get(urljoin(bretagne_archive_url, link))
-            year_soup = BeautifulSoup(year_res.text, "html.parser")
+            year_soup = await get_soup_from_url(
+                client, urljoin(bretagne_archive_url, link)
+            )
 
             for departement_div in year_soup.find_all(
                 "div", class_="item-liste-articles fr-card fr-enlarge-link"
@@ -105,57 +97,53 @@ async def get_bretagne_archive_pdf_urls_and_metadata() -> pd.DataFrame:
                     }
                 )
 
-        with logging_redirect_tqdm():
-            for e in tqdm(departements_links, desc="Extracting Bretagne AE PDFs link"):
-                departement_name = e["name"]
-                year = e["year"]
-                departement_link = e["url"]
+        for e in tqdm(departements_links, desc="Extracting Bretagne AE PDFs link"):
+            departement_name = e["name"]
+            year = int(e["year"])
+            departement_link = e["url"]
 
-                departement_res = await client.get(
-                    urljoin(bretagne_archive_url, departement_link)
-                )
-                departement_soup = BeautifulSoup(departement_res.text, "html.parser")
+            departement_soup = await get_soup_from_url(
+                client, urljoin(bretagne_archive_url, departement_link)
+            )
 
-                communes_names_h2 = departement_soup.find(
-                    "div", class_="texte-article fr-text fr-mt-8w fr-mb-3w"
-                ).find_all("h2")
-                for commune_name_h2 in communes_names_h2:
-                    commune_name = commune_name_h2.text
+            communes_names_h2 = departement_soup.find(
+                "div", class_="texte-article fr-text fr-mt-8w fr-mb-3w"
+            ).find_all("h2")
+            for commune_name_h2 in communes_names_h2:
+                commune_name = commune_name_h2.text
 
-                    for sibling in commune_name_h2.next_siblings:
-                        if sibling == "\n":
-                            continue
+                for sibling in commune_name_h2.next_siblings:
+                    if sibling == "\n":
+                        continue
 
-                        if sibling.name == "h2":
-                            break
+                    if sibling.name == "h2":
+                        break
 
-                        if sibling.name == "p":
-                            project_name = sibling.text
-                            if any(
-                                e in project_name.lower().strip()
-                                for e in ["solaire", "voltaïque", "voltaique"]
-                            ):
-                                pdf_div = sibling.next_sibling
-                                if pdf_div == "\n":
-                                    pdf_div = (
-                                        pdf_div.next_sibling
-                                    )  # To avoid hitting newlines between page elements
-                                if (pdf_div.name == "h2") or (pdf_div.name == "p"):
-                                    continue  # Sometimes there is no PDF link so we continue to next item
+                    if sibling.name == "p":
+                        project_name = sibling.text
+                        if any(
+                            e in project_name.lower().strip()
+                            for e in ["solaire", "voltaïque", "voltaique"]
+                        ):
+                            pdf_div = sibling.next_sibling
+                            if pdf_div == "\n":
+                                pdf_div = (
+                                    pdf_div.next_sibling
+                                )  # To avoid hitting newlines between page elements
+                            if (pdf_div.name == "h2") or (pdf_div.name == "p"):
+                                continue  # Sometimes there is no PDF link so we continue to next item
 
-                                document_url: str = pdf_div.find("a").get("href")
-                                document_name = Path(urlsplit(document_url).path).name
-                                avis.append(
-                                    {
-                                        "project_name": project_name,
-                                        "commune_name_scraped": commune_name,
-                                        "departement_name_scraped": departement_name,
-                                        "year_scraped": year,
-                                        "pdf_filename": document_name,
-                                        "pdf_url": urljoin(
-                                            bretagne_archive_url, document_url
-                                        ),
-                                    }
+                            document_url: str = pdf_div.find("a").get("href")
+                            document_name = Path(document_url).name
+                            avis.append(
+                                get_scraped_avis_dict(
+                                    project_name=project_name,
+                                    communes_names=[commune_name],
+                                    departement_name=departement_name,
+                                    project_date=datetime(year, 1, 1),
+                                    pdf_filename=document_name,
+                                    pdf_url=urljoin(bretagne_archive_url, document_url),
                                 )
+                            )
 
     return pd.DataFrame(avis)

@@ -9,7 +9,7 @@ import pandas as pd
 from tqdm.asyncio import tqdm_asyncio
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from .config import HEADERS, RETRY_TRANSPORT, TIMEOUT_CONFIG
+from ..config import get_http_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -114,12 +114,7 @@ async def download_pdfs(
     logger.info(f"Starting download of {len(pdf_metadata_df)} PDFs...")
 
     # Create shared client for efficiency
-    async with httpx.AsyncClient(
-        headers=HEADERS,
-        timeout=TIMEOUT_CONFIG,
-        follow_redirects=True,
-        transport=RETRY_TRANSPORT,
-    ) as client:
+    async with get_http_client() as client:
         tasks = []
         for _, row in pdf_metadata_df.iterrows():
             pdf_filename: str = row["pdf_filename"]

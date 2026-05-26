@@ -13,14 +13,14 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urljoin
 
-import httpx
 import pandas as pd
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 
-from ..config import HEADERS, RETRY_TRANSPORT, TIMEOUT_CONFIG
-from ..utils import download_pdfs
+from ..config import get_http_client, project_filter
+from ..utils.download import download_pdfs
+from ..utils.scraping import get_soup_from_url
+from ..utils.data import get_scraped_avis_dict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,16 +47,10 @@ async def get_guyane_archive_pdf_urls_and_metadata() -> pd.DataFrame:
 
     avis = []
 
-    async with httpx.AsyncClient(
-        headers=HEADERS,
-        timeout=TIMEOUT_CONFIG,
-        follow_redirects=True,
-        transport=RETRY_TRANSPORT,
-    ) as client:
+    async with get_http_client() as client:
         years_links: list[dict] = []
-        res = await client.get(ARCHIVE_URL)
 
-        soup = BeautifulSoup(res.text, "html.parser")
+        soup = await get_soup_from_url(client, ARCHIVE_URL)
 
         years_a = soup.find_all("a", class_="lien-sous-rubrique fr-link")
         for a in years_a:
@@ -73,66 +67,65 @@ async def get_guyane_archive_pdf_urls_and_metadata() -> pd.DataFrame:
             years_links.append({"url": url, "year": year})
 
         document_links = []
-        with logging_redirect_tqdm():
-            for e in tqdm(years_a, desc="Extracting Guyane AE PDFs link"):
-                document_page_link = e.get("href")
-                res = await client.get(urljoin(ARCHIVE_URL, document_page_link))
-                soup = BeautifulSoup(res.text, "html.parser")
+        for e in tqdm(years_a, desc="Extracting Guyane AE PDFs link"):
+            document_page_link = e.get("href")
 
-                document_links.extend(
-                    soup.find_all("a", class_="fr-card__link article-card-lien")
+            soup = await get_soup_from_url(
+                client, urljoin(ARCHIVE_URL, document_page_link)
+            )
+
+            document_links.extend(
+                soup.find_all("a", class_="fr-card__link article-card-lien")
+            )
+            if soup.find("ul", class_="fr-pagination__list") is not None:
+                next_page_element = soup.find(
+                    "a",
+                    class_="fr-pagination__link fr-pagination__link--next fr-pagination__link--lg-label",
                 )
-                if soup.find("ul", class_="fr-pagination__list") is not None:
+                next_page_href: str | None = next_page_element.get("href")
+                while next_page_href is not None:
+                    next_page_link = urljoin(ARCHIVE_URL, next_page_href)
+                    soup = await get_soup_from_url(client, next_page_link)
+
+                    document_links.extend(
+                        soup.find_all("a", class_="fr-card__link article-card-lien")
+                    )
                     next_page_element = soup.find(
                         "a",
                         class_="fr-pagination__link fr-pagination__link--next fr-pagination__link--lg-label",
                     )
                     next_page_href: str | None = next_page_element.get("href")
-                    while next_page_href is not None:
-                        next_page_link = urljoin(ARCHIVE_URL, next_page_href)
-                        res = await client.get(next_page_link)
-                        soup = BeautifulSoup(res.text, "html.parser")
-                        document_links.extend(
-                            soup.find_all("a", class_="fr-card__link article-card-lien")
-                        )
-                        next_page_element = soup.find(
-                            "a",
-                            class_="fr-pagination__link fr-pagination__link--next fr-pagination__link--lg-label",
-                        )
-                        next_page_href: str | None = next_page_element.get("href")
 
-            for doc in document_links:
-                doc_title = doc.text
+        for doc in document_links:
+            doc_title = doc.text
 
-                if not any(
-                    e in doc_title.lower().strip()
-                    for e in ["solaire", "voltaïque", "voltaique"]
-                ):
-                    continue
+            if not project_filter(doc_title.lower().strip()):
+                continue
 
-                doc_link = doc.get("href")
-                doc_res = await client.get(urljoin(ARCHIVE_URL, doc_link))
-                doc_soup = BeautifulSoup(doc_res.text, "html.parser")
+            doc_link = doc.get("href")
+            doc_res = await client.get(urljoin(ARCHIVE_URL, doc_link))
+            doc_soup = BeautifulSoup(doc_res.text, "html.parser")
 
-                publish_date_e = doc_soup.find("time")
-                publish_date = None
-                if publish_date_e is not None:
-                    publish_date_str = publish_date_e.get("datetime")
-                    publish_date = datetime.strptime(publish_date_str, "%Y-%m-%d")
+            publish_date_e = doc_soup.find("time")
+            publish_date = None
+            if publish_date_e is not None:
+                publish_date_str = publish_date_e.get("datetime")
+                publish_date = datetime.strptime(publish_date_str, "%Y-%m-%d")
 
-                pdf_e = doc_soup.find("a", class_="fr-download__link")
-                pdf_filename = pdf_e.contents[0].strip().replace(" ", "_") + ".pdf"
-                pdf_url = urljoin(ARCHIVE_URL, pdf_e.get("href"))
+            pdf_e = doc_soup.find("a", class_="fr-download__link")
+            pdf_filename = pdf_e.contents[0].strip().replace(" ", "_") + ".pdf"
+            pdf_url = urljoin(ARCHIVE_URL, pdf_e.get("href"))
 
-                avis.append(
-                    {
-                        "project_name": doc_title,
-                        "departement_code": "973",
-                        "publish_date_scraped": publish_date,
-                        "pdf_filename": pdf_filename,
-                        "pdf_url": pdf_url,
-                    }
+            avis.append(
+                get_scraped_avis_dict(
+                    project_name=doc_title,
+                    communes_names=None,
+                    departement_name="Guyane",
+                    project_date=publish_date,
+                    pdf_filename=pdf_filename,
+                    pdf_url=pdf_url,
                 )
+            )
 
     return pd.DataFrame(avis)
 
