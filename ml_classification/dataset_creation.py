@@ -32,9 +32,13 @@ def extract_context_index_positions(
     res = []
 
     for context in contexts:
-        start_index = ref_text_clean.index(context.strip())
-        if start_index is None:
-            raise Exception(f"{context} not found in {ref_text_clean}")
+        try:
+            start_index = ref_text_clean.replace("\n", " ").index(
+                context.strip().replace("\n", " ")
+            )
+        except Exception as e:
+            start_index = -1
+            print(e)
 
         res.append((start_index, len(context)))
 
@@ -111,10 +115,12 @@ if __name__ == "__main__":
     )
 
     arg_parser.add_argument(
-        "pdf_path", help="Path of the folder containing PDFs to be processed"
+        "pdf_path", help="Path of the folder containing PDFs to be processed", type=Path
     )
 
-    arg_parser.add_argument("output_path", help="Path where to output parquet file.")
+    arg_parser.add_argument(
+        "output_path", help="Path where to output parquet file.", type=Path
+    )
 
     arg_parser.add_argument(
         "--labels-dataset",
@@ -128,7 +134,7 @@ if __name__ == "__main__":
         pdfs_labels_df = pl.read_csv(labels_dataset)
 
     create_dataset(
-        Path(args.pdf_path),
-        Path(args.output_path),
+        args.pdf_path,
+        args.output_path,
         pdfs_labels_df,
     )

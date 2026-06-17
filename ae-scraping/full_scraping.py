@@ -24,6 +24,8 @@ from .archive.nouvelle_aquitaine import (
 from .archive.pays_de_la_loire import get_pdl_archive_pdf_urls_and_metadata
 from .archive.side import get_side_archive_pdf_urls_and_metadata
 from .archive.somme import get_somme_archive_pdf_urls_and_metadata
+from .archive.aura import get_aura_archive_pdf_urls_and_metadata
+from .archive.occitanie import get_occitanie_archive_pdf_urls_and_metadata
 from .mrae import get_mrae_pdf_urls_and_metadata
 from .utils.download import download_pdfs
 
@@ -42,6 +44,8 @@ sites_scraping_function_map = {
     "Nouvelle-Aquitaine": get_nouvelle_aquitaine_archive_pdf_urls_and_metadata,
     "Pays de la Loire": get_pdl_archive_pdf_urls_and_metadata,
     "Corse": get_corse_archive_pdf_urls_and_metadata,
+    "Auvergne Rhône-Alpes": get_aura_archive_pdf_urls_and_metadata,
+    "Occitanie": get_occitanie_archive_pdf_urls_and_metadata,
 }
 
 

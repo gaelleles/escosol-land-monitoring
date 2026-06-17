@@ -1,11 +1,10 @@
 import argparse
+import json
 import pprint
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 import polars as pl
-from sklearn.metrics import classification_report, f1_score
 from tqdm import tqdm
 
 from .config import (
@@ -40,7 +39,7 @@ def run_pdfs_inference(
 
         # Init true label matrix
         for label in LABELS:
-            res_dict[LABELS_MAP[label]] = 1 if label in row["land_type"] else 0
+            res_dict[LABELS_MAP[label]] = 1 if label in row["labels"] else 0
 
         res_dict["pdf_name"] = row["pdf_name"]
         result.append(res_dict)
@@ -83,7 +82,7 @@ def main():
     args = parser.parse_args()
 
     # Load system prompt
-    system_prompt_path = Path(__file__).parent / "prompt.md"
+    system_prompt_path = Path(__file__).parent / "prompt_20260430.md"
     if not system_prompt_path.exists():
         raise FileNotFoundError(f"Prompt file not found at: {system_prompt_path}")
     system_prompt = system_prompt_path.read_text()
@@ -120,7 +119,7 @@ def main():
         output_report_file = model_out_dir / f"{timestamp}_report.json"
         pprint.pprint(classification_report_dict)
         with open(output_report_file, "w") as f:
-            pprint.pprint(classification_report_dict, f)
+            json.dump(classification_report_dict, f, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":
