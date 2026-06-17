@@ -66,12 +66,14 @@ LLM_OUTPUT_JSON_SCHEMA = {
                 "Surfaces naturelles": {"type": "number"},
                 "Surfaces agricoles": {"type": "number"},
                 "Surfaces forestières": {"type": "number"},
+                "Surfaces friches": {"type": "number"},
             },
             "required": [
                 "Surfaces artificialisées",
                 "Surfaces naturelles",
                 "Surfaces agricoles",
                 "Surfaces forestières",
+                "Surfaces friches",
             ],
         },
         "contexts": {"type": "array", "items": {"type": "string"}},
@@ -85,6 +87,7 @@ LABELS = [
     "Surfaces naturelles",
     "Surfaces agricoles",
     "Surfaces forestières",
+    "Surfaces friches",
 ]
 
 LABELS_MAP = {
@@ -92,4 +95,5 @@ LABELS_MAP = {
     "Surfaces naturelles": "surfaces_naturelles",
     "Surfaces agricoles": "surfaces_agricoles",
     "Surfaces forestières": "surfaces_forestieres",
+    "Surfaces friches": "surfaces_friches",
 }

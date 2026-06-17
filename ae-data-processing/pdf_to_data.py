@@ -103,6 +103,7 @@ def extract_commune_and_departement(
         r" d[’']",
         r" aux ",
         r" de ",
+        r" au ",
     ]
 
     last_pos = -1
