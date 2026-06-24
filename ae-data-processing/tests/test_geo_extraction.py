@@ -1,4 +1,3 @@
-
 import pytest
 from extraction import (
     extract_commune_and_departement,
