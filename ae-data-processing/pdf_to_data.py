@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import polars as pl
 import pymupdf4llm
 from tqdm import tqdm
 

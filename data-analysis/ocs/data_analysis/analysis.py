@@ -14,9 +14,7 @@ def _(mo):
 
 @app.cell
 def _():
-    import re
     import duckdb
-    import numpy as np
     import marimo as mo
     import polars as pl
     import plotly.express as px
@@ -24,7 +22,6 @@ def _():
     import shapely
     from shapely import wkb
     from pyproj import Transformer
-    from spatial_polars import SpatialFrame
     import json
     return Transformer, duckdb, folium, json, mo, pl, px, shapely, wkb
 
@@ -38,7 +35,7 @@ def _(duckdb):
 @app.cell
 def _(con, mo):
     _ = mo.sql(
-        f"""
+        """
         LOAD SPATIAL
         """,
         output=False,
@@ -66,7 +63,7 @@ def _(mo):
 @app.cell
 def _(con, ign_photovoltaique_sol, mo):
     _df = mo.sql(
-        f"""
+        """
         SUMMARIZE ign_photovoltaique_sol
         """,
         engine=con
@@ -86,7 +83,7 @@ def _(mo):
 @app.cell
 def _(con, ign_photovoltaique_sol, mo):
     df_photo = mo.sql(
-        f"""
+        """
         SELECT
             *,
             ST_AsWkb (geom) as geom_wkb
@@ -113,7 +110,7 @@ def _(df_photo, folium, shapely, wkb):
 @app.cell
 def _(con, ign_photovoltaique_sol, mo):
     _df = mo.sql(
-        f"""
+        """
         SELECT
         	b."COM",
             count(distinct id) as num_installations
@@ -138,7 +135,7 @@ def _(mo):
 @app.cell
 def _(con, ign_photovoltaique_sol, mo):
     _ = mo.sql(
-        f"""
+        """
         SELECT
             sum(surf_parc) as surface_parc_totale_declaree
         from
@@ -160,7 +157,7 @@ def _(mo):
 @app.cell
 def _(con, ign_photovoltaique_sol, mo, ocs):
     df_link = mo.sql(
-        f"""
+        """
         with
             escosol_projected as (
                 SELECT
@@ -507,7 +504,7 @@ def _(
             )
             polygons.append(polygon_ocs)
 
-        if not data["id"] in ids_already_added:
+        if data["id"] not in ids_already_added:
             geom_photo = shapely.from_wkb(data["geom_proj_wkb"])
 
             geom_photo_4326 = shapely.transform(
@@ -572,7 +569,7 @@ def _(mo):
 @app.cell
 def _(con, mo):
     _df = mo.sql(
-        f"""
+        """
         CREATE table if not exists registre_installations as
         from
             'https://object.files.data.gouv.fr/hydra-parquet/hydra-parquet/c14e5a7d-2ca6-4ad8-bc61-93889d13fc25.parquet'
@@ -585,7 +582,7 @@ def _(con, mo):
 @app.cell
 def _(con, mo, registre_installations):
     _df = mo.sql(
-        f"""
+        """
         SUMMARIZE registre_installations
         """,
         engine=con
@@ -604,7 +601,7 @@ def _(mo):
 @app.cell
 def _(con, mo, registre_installations):
     df_registre_installations = mo.sql(
-        f"""
+        """
         SELECT
             *
         from

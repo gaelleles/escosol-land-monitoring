@@ -13,7 +13,6 @@ from asyncio import Semaphore
 from datetime import datetime
 from pathlib import Path
 import re
-from typing import Any
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
