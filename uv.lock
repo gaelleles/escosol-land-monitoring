@@ -846,6 +846,7 @@ dependencies = [
     { name = "duckdb" },
     { name = "evaluate" },
     { name = "fastexcel" },
+    { name = "fr-core-news-lg" },
     { name = "fr-core-news-sm" },
     { name = "geopandas" },
     { name = "httpx" },
@@ -897,6 +898,7 @@ requires-dist = [
     { name = "duckdb", specifier = ">=1.5.1" },
     { name = "evaluate", specifier = ">=0.4.6" },
     { name = "fastexcel", specifier = ">=0.20.1" },
+    { name = "fr-core-news-lg", url = "https://github.com/explosion/spacy-models/releases/download/fr_core_news_lg-3.8.0/fr_core_news_lg-3.8.0.tar.gz" },
     { name = "fr-core-news-sm", url = "https://github.com/explosion/spacy-models/releases/download/fr_core_news_sm-3.8.0/fr_core_news_sm-3.8.0-py3-none-any.whl" },
     { name = "geopandas", specifier = ">=1.1.3" },
     { name = "httpx", specifier = ">=0.28.1" },
@@ -1058,6 +1060,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/30/3e/a80a8c077fd798951
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cf/58/8acf1b3e91c58313ce5cb67df61001fc9dcd21be4fadb76c1a2d540e09ed/fqdn-1.5.1-py3-none-any.whl", hash = "sha256:3a179af3761e4df6eb2e026ff9e1a3033d3587bf980a0b1b2e1e5d08d7358014", size = 9121, upload-time = "2021-03-11T07:16:28.351Z" },
 ]
+
+[[package]]
+name = "fr-core-news-lg"
+version = "3.8.0"
+source = { url = "https://github.com/explosion/spacy-models/releases/download/fr_core_news_lg-3.8.0/fr_core_news_lg-3.8.0.tar.gz" }
+sdist = { hash = "sha256:97cd7998376b4b2304c6cd524dcb9a417eae9cc57eaed0ca5ea523f69b67a287" }
 
 [[package]]
 name = "fr-core-news-sm"

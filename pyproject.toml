@@ -40,6 +40,7 @@ dependencies = [
     "matplotlib>=3.10.8",
     "contextily>=1.7.0",
     "pip>=26.1.2",
+    "fr-core-news-lg",
 ]
 
 [dependency-groups]
@@ -57,3 +58,6 @@ dev = [
 
 [tool.uv.workspace]
 members = ["ae_labeling", "data-analysis/clustering"]
+
+[tool.uv.sources]
+fr-core-news-lg = { url = "https://github.com/explosion/spacy-models/releases/download/fr_core_news_lg-3.8.0/fr_core_news_lg-3.8.0.tar.gz" }
