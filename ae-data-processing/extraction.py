@@ -198,7 +198,7 @@ def extract_max_kwc(text: str) -> float | None:
     if not matches:
         return None
 
-    return process_matches(matches)
+    return process_matches(matches, max_val=100000)
 
 
 def extract_max_wc(text: str) -> float | None:
@@ -209,7 +209,7 @@ def extract_max_wc(text: str) -> float | None:
     if not matches:
         return None
 
-    return process_matches(matches)
+    return process_matches(matches, max_val=100000000)
 
 
 def extract_max_power(text: str) -> float | None:
