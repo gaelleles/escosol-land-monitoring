@@ -2,7 +2,6 @@ import asyncio
 import logging
 from pathlib import Path
 import random
-import re
 
 import httpx
 import pandas as pd

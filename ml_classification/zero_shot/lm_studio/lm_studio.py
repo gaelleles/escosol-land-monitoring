@@ -37,7 +37,7 @@ def run_inference(
 
     with tqdm(
         total=100,
-        desc=f"Processing PDF",
+        desc="Processing PDF",
         unit="%",
         leave=False,
     ) as inf_bar:

@@ -14,7 +14,6 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import pandas as pd
-from bs4 import BeautifulSoup
 
 from ..config import get_http_client, project_filter
 from ..utils.data import get_scraped_avis_dict

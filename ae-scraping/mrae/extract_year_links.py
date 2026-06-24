@@ -1,5 +1,4 @@
 # Access pages and extract links to avis projet x année
-import asyncio
 import logging
 import re
 from argparse import ArgumentParser

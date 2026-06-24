@@ -14,9 +14,7 @@ def _(mo):
 
 @app.cell
 def _():
-    import re
     import duckdb
-    import numpy as np
     import marimo as mo
     import polars as pl
     import plotly.express as px
@@ -24,8 +22,8 @@ def _():
     import shapely
     from shapely import wkb
     from pyproj import Transformer
-    from spatial_polars import SpatialFrame
     import json
+
     return Transformer, duckdb, folium, json, mo, pl, px, shapely, wkb
 
 
@@ -38,11 +36,11 @@ def _(duckdb):
 @app.cell
 def _(con, mo):
     _ = mo.sql(
-        f"""
+        """
         LOAD SPATIAL
         """,
         output=False,
-        engine=con
+        engine=con,
     )
     return
 
@@ -66,10 +64,10 @@ def _(mo):
 @app.cell
 def _(con, ign_photovoltaique_sol, mo):
     _df = mo.sql(
-        f"""
+        """
         SUMMARIZE ign_photovoltaique_sol
         """,
-        engine=con
+        engine=con,
     )
     return
 
@@ -86,14 +84,14 @@ def _(mo):
 @app.cell
 def _(con, ign_photovoltaique_sol, mo):
     df_photo = mo.sql(
-        f"""
+        """
         SELECT
             *,
             ST_AsWkb (geom) as geom_wkb
         FROM
             ign_photovoltaique_sol
         """,
-        engine=con
+        engine=con,
     )
     return (df_photo,)
 
@@ -113,7 +111,7 @@ def _(df_photo, folium, shapely, wkb):
 @app.cell
 def _(con, ign_photovoltaique_sol, mo):
     _df = mo.sql(
-        f"""
+        """
         SELECT
         	b."COM",
             count(distinct id) as num_installations
@@ -122,7 +120,7 @@ def _(con, ign_photovoltaique_sol, mo):
         group by 1
         order by 2 desc
         """,
-        engine=con
+        engine=con,
     )
     return
 
@@ -138,13 +136,13 @@ def _(mo):
 @app.cell
 def _(con, ign_photovoltaique_sol, mo):
     _ = mo.sql(
-        f"""
+        """
         SELECT
             sum(surf_parc) as surface_parc_totale_declaree
         from
             ign_photovoltaique_sol
         """,
-        engine=con
+        engine=con,
     )
     return
 
@@ -160,7 +158,7 @@ def _(mo):
 @app.cell
 def _(con, ign_photovoltaique_sol, mo, ocs):
     df_link = mo.sql(
-        f"""
+        """
         with
             escosol_projected as (
                 SELECT
@@ -220,7 +218,7 @@ def _(con, ign_photovoltaique_sol, mo, ocs):
             ST_area(ej.geom_intersection) as geom_intersection_area
         from escosol_joined ej
         """,
-        engine=con
+        engine=con,
     )
     return (df_link,)
 
@@ -239,13 +237,11 @@ def _(df_link, pl):
         (pl.col("millesime") > pl.col("millesime_ocs")) | pl.col("id_1").is_null()
     ).filter(
         (
-            (
-                pl.col("millesime_ocs")
-                .rank(descending=True)
-                .over(partition_by=["id", "id_1"], order_by="millesime_ocs")
-                == 1
-            ) # Uniquement les données OCS les plus récentes mais jamais plus que le millésime des données photovolat_iques
-        )
+            pl.col("millesime_ocs")
+            .rank(descending=True)
+            .over(partition_by=["id", "id_1"], order_by="millesime_ocs")
+            == 1
+        )  # Uniquement les données OCS les plus récentes mais jamais plus que le millésime des données photovolat_iques
         | pl.col("id_1").is_null()
     )
     return (df_link_filtered,)
@@ -287,9 +283,7 @@ def _(Transformer, folium, pl, shapely, wkb):
         df: pl.DataFrame, geom_colname: str, project: bool = False
     ) -> folium.Map:
         m = folium.Map(zoom_start=6, tiles="OpenStreetMap")
-        for row in df.iter_rows(
-            named=True
-        ):
+        for row in df.iter_rows(named=True):
             geom_shapely = wkb.loads(row[geom_colname])
             if project:
                 transformer = Transformer.from_crs(
@@ -298,8 +292,11 @@ def _(Transformer, folium, pl, shapely, wkb):
                 geom_shapely = shapely.transform(
                     geom_shapely, transformer.transform, interleaved=False
                 )
-            folium.Polygon(shapely.get_coordinates(geom_shapely),popup=row["id"]).add_to(m)
+            folium.Polygon(
+                shapely.get_coordinates(geom_shapely), popup=row["id"]
+            ).add_to(m)
         return m
+
     return
 
 
@@ -396,36 +393,44 @@ def _():
 
 @app.cell
 def _(CODES_US_MAPPING, df_link_filtered, pl):
-    df_code_us_by_surface = pl.concat(
-        [
-            df_link_filtered.with_columns(
-                pl.col("code_us").fill_null(pl.lit("Code US inconnu"))
-            )
-            .group_by(["id", "code_us"])
-            .agg(
-                pl.col("geom_intersection_area").sum().alias("surface"),
-            ),
-            # Reste de surface sans correspondance avec une géométrie OCS :
-            df_link_filtered.with_columns(
-                pl.col("code_us").fill_null(pl.lit("Code US inconnu"))
-            )
-            .group_by(["id"])
-            .agg(
-                (
-                    pl.col("project_geom_area").max()
-                    - pl.col("geom_intersection_area").sum()
+    df_code_us_by_surface = (
+        pl.concat(
+            [
+                df_link_filtered.with_columns(
+                    pl.col("code_us").fill_null(pl.lit("Code US inconnu"))
                 )
-                .sum()
-                .alias("surface"),
-            )
-            .with_columns(pl.lit("Sans correspondance").alias("code_us"))
-            .select(["id", "code_us", "surface"]),
-        ],
-        how="vertical_relaxed",
-    ).group_by("code_us").agg(pl.col("surface").sum()).with_columns(
-        pl.col("code_us").replace(CODES_US_MAPPING),
-        (100*pl.col("surface")/pl.col("surface").sum()).alias("% de la surface")
-    ).sort("surface",descending=True)
+                .group_by(["id", "code_us"])
+                .agg(
+                    pl.col("geom_intersection_area").sum().alias("surface"),
+                ),
+                # Reste de surface sans correspondance avec une géométrie OCS :
+                df_link_filtered.with_columns(
+                    pl.col("code_us").fill_null(pl.lit("Code US inconnu"))
+                )
+                .group_by(["id"])
+                .agg(
+                    (
+                        pl.col("project_geom_area").max()
+                        - pl.col("geom_intersection_area").sum()
+                    )
+                    .sum()
+                    .alias("surface"),
+                )
+                .with_columns(pl.lit("Sans correspondance").alias("code_us"))
+                .select(["id", "code_us", "surface"]),
+            ],
+            how="vertical_relaxed",
+        )
+        .group_by("code_us")
+        .agg(pl.col("surface").sum())
+        .with_columns(
+            pl.col("code_us").replace(CODES_US_MAPPING),
+            (100 * pl.col("surface") / pl.col("surface").sum()).alias(
+                "% de la surface"
+            ),
+        )
+        .sort("surface", descending=True)
+    )
     df_code_us_by_surface
     return (df_code_us_by_surface,)
 
@@ -439,10 +444,8 @@ def _(df_code_us_by_surface, px):
         template="simple_white",
         text="% de la surface",
         text_auto=".2f",
-        labels={
-            "code_us": "Usage du sol occupé"
-        },
-        title = "Sur quels types d'occupation des sols les parcs phtovoltaïques sont-ils installés ?"
+        labels={"code_us": "Usage du sol occupé"},
+        title="Sur quels types d'occupation des sols les parcs phtovoltaïques sont-ils installés ?",
     )
     return
 
@@ -468,8 +471,6 @@ def _(
     polygons = []
     ids_already_added = []
     for data in df_link_filtered.iter_rows(named=True):
-        codes_insee = data["insee_com"]
-    
         ocs_geom_wkb = data["geom_intersection_wkb"]
         transformer = Transformer.from_crs(
             data["geom_original_referential"], 4326, always_xy=True
@@ -496,7 +497,7 @@ def _(
                     "fillColor": color,
                     "color": color,
                     "fill_opacity": 0.3,
-                    "stroke":False,
+                    "stroke": False,
                 },
                 popup=folium.GeoJsonPopup(fields=["popup"], labels=False),
                 highlight_function=lambda feature: {
@@ -507,7 +508,7 @@ def _(
             )
             polygons.append(polygon_ocs)
 
-        if not data["id"] in ids_already_added:
+        if data["id"] not in ids_already_added:
             geom_photo = shapely.from_wkb(data["geom_proj_wkb"])
 
             geom_photo_4326 = shapely.transform(
@@ -527,14 +528,14 @@ def _(
                 fill_opacity=0.3,
                 style_function=lambda feature: {
                     "color": "#f39c12",
-                    "weight":4,
-                    "fill":False
+                    "weight": 4,
+                    "fill": False,
                 },
                 popup=folium.GeoJsonPopup(fields=["popup"], labels=False),
                 highlight_function=lambda feature: {
                     "color": "red",
                     "stroke": True,
-                    "fill":False
+                    "fill": False,
                 },
             )
             polygons.append(polygon_photo)
@@ -572,12 +573,12 @@ def _(mo):
 @app.cell
 def _(con, mo):
     _df = mo.sql(
-        f"""
+        """
         CREATE table if not exists registre_installations as
         from
             'https://object.files.data.gouv.fr/hydra-parquet/hydra-parquet/c14e5a7d-2ca6-4ad8-bc61-93889d13fc25.parquet'
         """,
-        engine=con
+        engine=con,
     )
     return
 
@@ -585,10 +586,10 @@ def _(con, mo):
 @app.cell
 def _(con, mo, registre_installations):
     _df = mo.sql(
-        f"""
+        """
         SUMMARIZE registre_installations
         """,
-        engine=con
+        engine=con,
     )
     return
 
@@ -604,7 +605,7 @@ def _(mo):
 @app.cell
 def _(con, mo, registre_installations):
     df_registre_installations = mo.sql(
-        f"""
+        """
         SELECT
             *
         from
@@ -612,7 +613,7 @@ def _(con, mo, registre_installations):
         where
             filiere = 'Solaire';
         """,
-        engine=con
+        engine=con,
     )
     return (df_registre_installations,)
 

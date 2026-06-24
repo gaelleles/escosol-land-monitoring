@@ -15,14 +15,14 @@ def donwload_links_filter(tag: Tag) -> bool:
     if not tag.name == "a":
         return False
 
-    if not "href" in tag.attrs:
+    if "href" not in tag.attrs:
         return False
 
     if (
         tag["href"].startswith(
             "https://data.geopf.fr/telechargement/download/OCSGE-ARTIFICIALISATION/"
         )
-        and not "DIFF" in tag["href"]
+        and "DIFF" not in tag["href"]
     ):
         return True
 
