@@ -1023,11 +1023,8 @@ async def limousin_project_table_scraping(url: str) -> pd.DataFrame:
 
             next_sibling_e = departement_e.next_sibling
 
-            year = None
             while (next_sibling_e is not None) and (not next_sibling_e.name == "h2"):
-                if next_sibling_e.name == "p":
-                    year = next_sibling_e.get_text().replace("-", "").strip()
-                elif next_sibling_e.name == "table":
+                if next_sibling_e.name == "table":
                     avis_tmp = extract_avis_from_table(next_sibling_e)
 
                     avis_tmp = [
