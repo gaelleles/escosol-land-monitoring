@@ -48,3 +48,31 @@ Un script `photovoltaique_sol_ddl.sql` permet de créer la table `ign_photovolta
 ## Analyse
 
 Un notebook [marimo](https://marimo.io/) se situe dans le dossier `data_analysis`.
+
+## Classification ENAF
+
+L'objectif du projet est de mesurer la consommation d'**Espaces Naturels,
+Agricoles et Forestiers (ENAF)** par le photovoltaïque. Le notebook travaillait
+jusqu'ici au niveau du code d'usage brut (`code_us`) ; le module
+`data_analysis/enaf.py` ajoute la couche manquante en regroupant les codes
+OCS-GE dans les cinq catégories ENAF :
+
+`Surfaces agricoles` · `Surfaces forestières` · `Surfaces naturelles` ·
+`Surfaces artificialisées` · `Surfaces de friche`
+
+La classification suit un ordre de priorité (marqueur *artificialisé* → `code_us`
+→ affinage forestier via `code_cs` → défaut). Elle est testée sans base de
+données :
+
+```bash
+uv run pytest data_analysis/test_enaf.py
+```
+
+Le notebook ajoute, à la suite des statistiques par usage, un graphique de la
+répartition des surfaces consommées par catégorie ENAF.
+
+> [!NOTE]
+> La jointure du notebook ne remonte aujourd'hui que `code_us`. Remonter aussi
+> `code_cs` et le marqueur `artif` dans la jointure OCS activerait l'affinage
+> forestier et la priorité « artificialisé », déjà pris en charge par
+> `enaf.classer_enaf`.
