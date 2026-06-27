@@ -453,6 +453,84 @@ def _(df_code_us_by_surface, px):
 @app.cell
 def _(mo):
     mo.md(r"""
+    ### Consommation d'ENAF
+
+    Regroupement des codes d'usage OCS-GE dans les cinq catégories ENAF (Espaces
+    Naturels, Agricoles et Forestiers) — l'indicateur visé par le projet. La
+    table de correspondance et sa logique de priorité sont définies (et testées)
+    dans `enaf.py`.
+
+    > La jointure actuelle ne remonte que `code_us`. La classification utilise
+    > donc le code d'usage seul ; remonter aussi `code_cs` et le marqueur `artif`
+    > dans la jointure activerait l'affinage forestier et la priorité
+    > « artificialisé », déjà gérés par `enaf.classer_enaf`.
+    """)
+    return
+
+
+@app.cell
+def _():
+    import enaf
+
+    return (enaf,)
+
+
+@app.cell
+def _(df_link_filtered, enaf, pl):
+    df_enaf_by_surface = (
+        pl.concat(
+            [
+                df_link_filtered.with_columns(
+                    pl.col("code_us")
+                    .map_elements(enaf.classer_enaf, return_dtype=pl.String)
+                    .alias("categorie_enaf")
+                )
+                .group_by(["id", "categorie_enaf"])
+                .agg(pl.col("geom_intersection_area").sum().alias("surface")),
+                # Reste de surface sans correspondance avec une géométrie OCS :
+                df_link_filtered.group_by(["id"])
+                .agg(
+                    (
+                        pl.col("project_geom_area").max()
+                        - pl.col("geom_intersection_area").sum()
+                    )
+                    .sum()
+                    .alias("surface")
+                )
+                .with_columns(pl.lit(enaf.SANS_CORRESPONDANCE).alias("categorie_enaf"))
+                .select(["id", "categorie_enaf", "surface"]),
+            ],
+            how="vertical_relaxed",
+        )
+        .group_by("categorie_enaf")
+        .agg(pl.col("surface").sum())
+        .with_columns(
+            (100 * pl.col("surface") / pl.col("surface").sum()).alias("% de la surface")
+        )
+        .sort("surface", descending=True)
+    )
+    df_enaf_by_surface
+    return (df_enaf_by_surface,)
+
+
+@app.cell
+def _(df_enaf_by_surface, px):
+    px.bar(
+        df_enaf_by_surface,
+        x="categorie_enaf",
+        y="% de la surface",
+        template="simple_white",
+        text="% de la surface",
+        text_auto=".2f",
+        labels={"categorie_enaf": "Catégorie ENAF"},
+        title="Quelle part d'ENAF les parcs photovoltaïques consomment-ils ?",
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
     ### Carte
     """)
     return
